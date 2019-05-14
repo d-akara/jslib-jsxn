@@ -7,7 +7,7 @@
 // make iterable, compatible with JSON.stringify
 
 export interface Attribute {
-    name: string
+    localName: string
     value: string
 }
 
@@ -57,12 +57,12 @@ export function makeXmlProxy(element:Element, rules:Rule[] = [{type:'any'}]):Ele
                 const element = resolveElementProxy(target, key, rules, rule)
                 if (element) return element
 
-                const attribute = find(target.attributes, attribute => attribute.name === key)
+                const attribute = find(target.attributes, attribute => attribute.localName === key)
                 if (attribute) return attribute.value
             }
 
             if (rule.type === 'attribute') {
-                const attribute = find(target.attributes, attribute => attribute.name === key)
+                const attribute = find(target.attributes, attribute => attribute.localName === key)
                 if (attribute) return attribute.value
             }
             
