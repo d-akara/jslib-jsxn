@@ -22,13 +22,19 @@ const sampleXml = `
     <y:yellow a="b">
         text
     </y:yellow>
-    <g:yellow>
-        green
-    </g:yellow>
+    <g:yellow>green</g:yellow>
 </root>
 `
 const document:XMLDocument = parser.sync(sampleXml)
 
+/**
+ * Default behavior:
+ * - first use key to match by element localName and then by attribute name
+ * - if element has no children or attributes, then automaticaly resolve as the textContent
+ * - elements are assumed to be single instance unless a rule is added to indicate more than 1 by specifying type = 'elements'
+ * 
+ * Rules can be used to customize the behavior of key resolution
+ */
 const rules:Rule[] = [
     {key:'plant', type: 'elements'},
     {key:'value', type: 'attribute'},
@@ -38,11 +44,11 @@ const rules:Rule[] = [
 ]
 const jsxn:any = makeXmlProxy(document.documentElement as Element, rules)
 
-console.log(jsxn.tree.branch)
-console.log(jsxn.plant[1].type)
-console.log(jsxn.option.value)
-console.log(jsxn.option.v)
-console.log(jsxn.plant[0].v)
-console.log(jsxn.yellow.a)
-console.log(jsxn.green)
+console.log(jsxn.tree.branch === 'br1')
+console.log(jsxn.plant[1].type === 'bush')
+console.log(jsxn.option.value === 'true')
+console.log(jsxn.option.v === 'false')
+console.log(jsxn.plant[0].v === 'shrub')
+console.log(jsxn.yellow.a === 'b')
+console.log(jsxn.green === 'green')
 ```
