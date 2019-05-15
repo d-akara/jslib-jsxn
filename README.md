@@ -6,7 +6,7 @@ Currently experimental, expect updates to break things
 ```javascript
 const parser = require('slimdom-sax-parser')
 import {XMLDocument, Element} from "slimdom"
-import {makeXmlProxy, Rule} from "./index"
+import {jsxn, Rule} from "./index"
 
 const sampleXml = `
 <root xmlns:y="http://localhost/yellow" xmlns:g="http://localhost/green">
@@ -23,6 +23,7 @@ const sampleXml = `
         text
     </y:yellow>
     <g:yellow>green</g:yellow>
+    <simpleText ab="123">text of element</simpleText>
 </root>
 `
 const document:XMLDocument = parser.sync(sampleXml)
@@ -39,16 +40,18 @@ const rules:Rule[] = [
     {key:'plant', type: 'elements'},
     {key:'value', type: 'attribute'},
     {key:'green', asKey: 'yellow', asNamespace: 'http://localhost/green'},
+    {key:'simpleText', type: 'text'},
     {key:'v', asKey: 'type', whenLocalName: 'plant'},
     {key:'v', asKey: 'value'},
 ]
-const jsxn:any = makeXmlProxy(document.documentElement as Element, rules)
+const xml = jsxn(document.documentElement as Element, rules)
 
-console.log(jsxn.tree.branch === 'br1')
-console.log(jsxn.plant[1].type === 'bush')
-console.log(jsxn.option.value === 'true')
-console.log(jsxn.option.v === 'false')
-console.log(jsxn.plant[0].v === 'shrub')
-console.log(jsxn.yellow.a === 'b')
-console.log(jsxn.green === 'green')
+console.log(xml.tree.branch === 'br1')
+console.log(xml.plant[1].type === 'bush')
+console.log(xml.option.value === 'true')
+console.log(xml.option.v === 'false')
+console.log(xml.plant[0].v === 'shrub')
+console.log(xml.yellow.a === 'b')
+console.log(xml.green === 'green')
+console.log(xml.simpleText === 'text of element')
 ```

@@ -1,6 +1,6 @@
 {
   "name": "jsxn",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "JSON XML Proxy",
   "main": "dist/index.js",
   "scripts": {
