@@ -17,6 +17,7 @@ export interface Element {
     localName: string
     namespaceURI: string | null
     textContent: string | null
+    innerHTML: string | null
     readonly childElementCount: number
 }
 
@@ -57,6 +58,11 @@ export interface Rule {
     asNamespace?: string
     whenLocalName?: string
     whenNamespace?: string
+}
+
+interface JsxnOptions {
+    strict: boolean
+    cardinality: 'many' | 'one'
 }
 
 /**
@@ -102,7 +108,7 @@ function makeXmlProxy(element:Element, rules:Rule[]):Element {
 
             else if (rule.type === 'text') {
                 const element = findElement(target, key, rules, rule)
-                if (element) return element.textContent
+                if (element) return elementText(element)
             }
 
             return undefined
@@ -112,7 +118,8 @@ function makeXmlProxy(element:Element, rules:Rule[]):Element {
             // TODO detect collisions
             let keys = map(target.children, element => element.localName)
             keys = keys.concat(map(target.attributes, attribute => attribute.localName))
-            return keys
+            const uniqueKeys = new Set(keys)
+            return Array.from(uniqueKeys.keys())
         },
 
         getOwnPropertyDescriptor(target, prop) {
@@ -129,6 +136,14 @@ function resolveFirstMatchingRule(rules:Rule[], target:Element, key:string) {
     return rule
 }
 
+function elementText(element:Element) {
+    if (element.textContent) return element.textContent
+
+    // Discovered an instance where slimdom didn't have the textContent attribute, but only innerHTML.  
+    // Seems like a bug, but his is a work around for now
+    if (element.innerHTML) return element.innerHTML
+}
+
 function findElement(target:Element, key:string, rules:Rule[], currentRule:Rule) {
     const element = find(target.children, element => {
         if (element.localName !== key) return false
@@ -143,7 +158,7 @@ function resolveElementProxy(target:Element, key:string, rules:Rule[], currentRu
 
     if (element) {
         // no child elements or attributes, resolve as text.
-        if (element.childElementCount === 0 && element.attributes.length === 0) return element.textContent
+        if (element.childElementCount === 0 && element.attributes.length === 0) return elementText(element)
         // wrap in proxy
         return makeXmlProxy(element, rules)
     }
