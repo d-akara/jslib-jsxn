@@ -7,6 +7,7 @@
 // make iterable, compatible with JSON.stringify
 
 export interface Attribute {
+    name: string
     localName: string
     value: string
 }
@@ -19,10 +20,6 @@ export interface Element {
     textContent: string | null
     innerHTML: string | null
     readonly childElementCount: number
-}
-
-export interface JsonObject {
-    [key:string]: any
 }
 
 function find<T>(items: ArrayLike<T>, findFn: (item:T)=>boolean):T|null {
@@ -60,6 +57,15 @@ export interface Rule {
     whenNamespace?: string
 }
 
+export const AsJson = Symbol('JSON Key')
+export const AsJsonString = Symbol('JSON String Key')
+
+export interface JsonObject {
+    [key:string]: any
+    [AsJsonString]: string
+    [AsJson]: any
+}
+
 interface JsxnOptions {
     strict: boolean
     cardinality: 'many' | 'one'
@@ -76,8 +82,13 @@ export function jsxn(element:Element, rules:Rule[] = [{type:'any'}]):JsonObject 
 }
 
 function makeXmlProxy(element:Element, rules:Rule[]):Element {
-    const staticValueProxy = new Proxy(element, {
-        get(target, key:string) {
+    const staticValueProxy:any = new Proxy(element, {
+        get(target, key) {
+            if (key === AsJsonString) return JSON.stringify(staticValueProxy)
+            if (key === AsJson) return JSON.parse(JSON.stringify(staticValueProxy))
+
+            if (typeof key !== 'string') return undefined
+
             const rule = resolveFirstMatchingRule(rules, target, key)
 
             if (rule.asKey) key = rule.asKey
@@ -87,12 +98,12 @@ function makeXmlProxy(element:Element, rules:Rule[]):Element {
                 // TODO check if attribute name collision
                 if (element) return element
 
-                const attribute = find(target.attributes, attribute => attribute.localName === key)
+                const attribute = findAttribute(target, key)
                 if (attribute) return attribute.value
             }
 
             else if (rule.type === 'attribute') {
-                const attribute = find(target.attributes, attribute => attribute.localName === key)
+                const attribute = findAttribute(target, key)
                 if (attribute) return attribute.value
             }
             
@@ -117,7 +128,8 @@ function makeXmlProxy(element:Element, rules:Rule[]):Element {
         ownKeys(target) {
             // TODO detect collisions
             let keys = map(target.children, element => element.localName)
-            keys = keys.concat(map(target.attributes, attribute => attribute.localName))
+            const attributeKeys = filter(target.attributes, attribute => !(attribute.name.startsWith('xmlns:') || attribute.name === 'xmlns'))
+            keys = keys.concat(map(attributeKeys, attribute => attribute.localName))
             const uniqueKeys = new Set(keys)
             return Array.from(uniqueKeys.keys())
         },
@@ -151,6 +163,11 @@ function findElement(target:Element, key:string, rules:Rule[], currentRule:Rule)
         return true
     })
     return element
+}
+
+function findAttribute(target:Element, key:string) {
+    const attribute = find(target.attributes, attribute => attribute.localName === key && !(attribute.name.startsWith('xmlns:') || attribute.name === 'xmlns'))
+    return attribute
 }
 
 function resolveElementProxy(target:Element, key:string, rules:Rule[], currentRule:Rule) {

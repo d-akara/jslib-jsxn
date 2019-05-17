@@ -1,6 +1,6 @@
 const parser = require('slimdom-sax-parser')
 import {XMLDocument, Element} from "slimdom"
-import {jsxn, Rule} from "./index"
+import {jsxn, Rule, AsJsonString, AsJson} from "./index"
 
 const sampleXml = `
 <root xmlns:y="http://localhost/yellow" xmlns:g="http://localhost/green">
@@ -49,4 +49,8 @@ console.log(xml.yellow.a === 'b')
 console.log(xml.green === 'green')
 console.log(xml.simpleText === 'text of element')
 
-console.log(JSON.parse(JSON.stringify(xml)))
+// get a static copy as a plain JSON object
+console.log(xml[AsJson])
+
+// get a string representation of the JSON
+console.log(xml[AsJsonString])
