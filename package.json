@@ -1,7 +1,9 @@
 {
   "name": "jsxn",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "JSON XML Proxy",
+  "homepage": "https://github.com/dakaraphi/jslib-jsxn",
+  "repository": "dakaraphi/jslib-jsxn",
   "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

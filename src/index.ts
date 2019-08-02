@@ -59,11 +59,13 @@ export interface Rule {
 
 export const AsJson = Symbol('JSON Key')
 export const AsJsonString = Symbol('JSON String Key')
+export const AsXml = Symbol('XML Element Key')
 
 export interface JsonObject {
     [key:string]: any
     [AsJsonString]: string
     [AsJson]: any
+    [AsXml]: Element
 }
 
 interface JsxnOptions {
@@ -78,14 +80,15 @@ interface JsxnOptions {
  * @param rules optional list of rules to define how to resolve object key values
  */
 export function jsxn(element:Element, rules:Rule[] = [{type:'any'}]):JsonObject {
-    return makeXmlProxy(element, rules)
+    return makeXmlProxy(element, rules) as unknown as JsonObject
 }
 
 function makeXmlProxy(element:Element, rules:Rule[]):Element {
     const staticValueProxy:any = new Proxy(element, {
         get(target, key) {
             if (key === AsJsonString) return JSON.stringify(staticValueProxy)
-            if (key === AsJson) return JSON.parse(JSON.stringify(staticValueProxy))
+            else if (key === AsJson) return JSON.parse(JSON.stringify(staticValueProxy))
+            else if (key === AsXml) return target
 
             if (typeof key !== 'string') return undefined
 
@@ -157,6 +160,7 @@ function elementText(element:Element) {
 }
 
 function findElement(target:Element, key:string, rules:Rule[], currentRule:Rule) {
+    // TODO detect multiple matches as ambiguous result
     const element = find(target.children, element => {
         if (element.localName !== key) return false
         if (currentRule.asNamespace && currentRule.asNamespace !== element.namespaceURI) return false
@@ -166,6 +170,7 @@ function findElement(target:Element, key:string, rules:Rule[], currentRule:Rule)
 }
 
 function findAttribute(target:Element, key:string) {
+    // TODO detect multiple matches as ambiguous result
     const attribute = find(target.attributes, attribute => attribute.localName === key && !(attribute.name.startsWith('xmlns:') || attribute.name === 'xmlns'))
     return attribute
 }
