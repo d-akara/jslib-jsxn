@@ -18,6 +18,8 @@ const sampleXml = `
     </y:yellow>
     <g:yellow>green</g:yellow>
     <simpleText ab="123">text of element</simpleText>
+    <simpleText2 xmlns="http://abc">text of element</simpleText2>
+    <dash-element dash-attribute="123"/>
 </root>
 `
 const document:XMLDocument = parser.sync(sampleXml)
@@ -38,7 +40,7 @@ const rules:Rule[] = [
     {key:'v', asKey: 'type', whenLocalName: 'plant'},
     {key:'v', asKey: 'value'},
 ]
-const xml = jsxn(document.documentElement as Element, rules)
+const xml = jsxn(document.documentElement as Element, rules, {convertKeysToCamelCase:true})
 
 console.log(xml.tree.branch === 'br1')
 console.log(xml.plant[1].type === 'bush')
@@ -48,12 +50,14 @@ console.log(xml.plant[0].v === 'shrub')
 console.log(xml.yellow.a === 'b')
 console.log(xml.green === 'green')
 console.log(xml.simpleText === 'text of element')
+console.log(xml.simpleText2 === 'text of element')
+console.log(xml.dashElement.dashAttribute === '123')
 
 // get a static copy as a plain JSON object
-console.log(xml[AsJson])
+console.log(JSON.parse(JSON.stringify(xml)))
 
 // get a string representation of the JSON
-console.log(xml[AsJsonString])
+console.log(JSON.stringify(xml))
 
 // get the underlying XML Element
-console.log(xml[AsXml])
+//console.log(xml[AsXml])

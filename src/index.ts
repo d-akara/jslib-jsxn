@@ -5,6 +5,7 @@
 //   all elements that are lists
 // cache proxies with symbol references
 // make iterable, compatible with JSON.stringify
+// 
 
 export interface Attribute {
     name: string
@@ -69,8 +70,9 @@ export interface JsonObject {
 }
 
 interface JsxnOptions {
-    strict: boolean
-    cardinality: 'many' | 'one'
+    strict?: boolean
+    cardinality?: 'many' | 'one'
+    convertKeysToCamelCase?: boolean
 }
 
 /**
@@ -79,11 +81,11 @@ interface JsxnOptions {
  * @param element A DOM Element
  * @param rules optional list of rules to define how to resolve object key values
  */
-export function jsxn(element:Element, rules:Rule[] = [{type:'any'}]):JsonObject {
-    return makeXmlProxy(element, rules) as unknown as JsonObject
+export function jsxn(element:Element, rules:Rule[] = [{type:'any'}], options:JsxnOptions = {convertKeysToCamelCase:true}):JsonObject {
+    return makeXmlProxy(element, rules, options) as unknown as JsonObject
 }
 
-function makeXmlProxy(element:Element, rules:Rule[]):Element {
+function makeXmlProxy(element:Element, rules:Rule[], options:JsxnOptions):Element {
     const staticValueProxy:any = new Proxy(element, {
         get(target, key) {
             if (key === AsJsonString) return JSON.stringify(staticValueProxy)
@@ -97,31 +99,31 @@ function makeXmlProxy(element:Element, rules:Rule[]):Element {
             if (rule.asKey) key = rule.asKey
 
             if (rule.type === 'any') {
-                const element = resolveElementProxy(target, key, rules, rule)
+                const element = resolveElementProxy(target, key, rules, rule, options)
                 // TODO check if attribute name collision
                 if (element) return element
 
-                const attribute = findAttribute(target, key)
+                const attribute = findAttribute(target, key, options)
                 if (attribute) return attribute.value
             }
 
             else if (rule.type === 'attribute') {
-                const attribute = findAttribute(target, key)
+                const attribute = findAttribute(target, key, options)
                 if (attribute) return attribute.value
             }
             
             else if (rule.type === 'element') {
-                const element = resolveElementProxy(target, key, rules, rule)
+                const element = resolveElementProxy(target, key, rules, rule, options)
                 if (element) return element
             }
 
             else if (rule.type === 'elements') {
                 const elements = filter(target.children, element => element.localName === key)
-                return elements.map(element => makeXmlProxy(element, rules))
+                return elements.map(element => makeXmlProxy(element, rules, options))
             }
 
             else if (rule.type === 'text') {
-                const element = findElement(target, key, rules, rule)
+                const element = findElement(target, key, rules, rule, options)
                 if (element) return elementText(element)
             }
 
@@ -133,6 +135,16 @@ function makeXmlProxy(element:Element, rules:Rule[]):Element {
             let keys = map(target.children, element => element.localName)
             const attributeKeys = filter(target.attributes, attribute => !(attribute.name.startsWith('xmlns:') || attribute.name === 'xmlns'))
             keys = keys.concat(map(attributeKeys, attribute => attribute.localName))
+
+            keys.forEach((key, index) => {
+                if (options.convertKeysToCamelCase)
+                    keys[index] = toCamelCase(keys[index])
+
+                const rule = rules.find(rule => evaluateRuleByAsKey(target, rule, key))
+                if (rule && rule.asKey)
+                    keys[index] = rule.key
+            })
+
             const uniqueKeys = new Set(keys)
             return Array.from(uniqueKeys.keys())
         },
@@ -159,37 +171,67 @@ function elementText(element:Element) {
     if (element.innerHTML) return element.innerHTML
 }
 
-function findElement(target:Element, key:string, rules:Rule[], currentRule:Rule) {
+function findElement(target:Element, key:string, rules:Rule[], currentRule:Rule, options:JsxnOptions) {
     // TODO detect multiple matches as ambiguous result
     const element = find(target.children, element => {
-        if (element.localName !== key) return false
+        const localName = options.convertKeysToCamelCase ? toCamelCase(element.localName) : element.localName
+        if (localName !== key) return false
         if (currentRule.asNamespace && currentRule.asNamespace !== element.namespaceURI) return false
         return true
     })
     return element
 }
 
-function findAttribute(target:Element, key:string) {
+function containsNormalAttributes(target:Element) {
+    const normalElementExists = find(target.attributes, attribute => !(attribute.name.startsWith('xmlns:') || attribute.name === 'xmlns'))
+    return !!normalElementExists
+}
+
+function findAttribute(target:Element, key:string, options:JsxnOptions) {
     // TODO detect multiple matches as ambiguous result
-    const attribute = find(target.attributes, attribute => attribute.localName === key && !(attribute.name.startsWith('xmlns:') || attribute.name === 'xmlns'))
+    const attribute = find(target.attributes, attribute => {
+        const localName = options.convertKeysToCamelCase ? toCamelCase(attribute.localName) : attribute.localName
+        return localName === key && !(attribute.name.startsWith('xmlns:') || attribute.name === 'xmlns')
+    })
     return attribute
 }
 
-function resolveElementProxy(target:Element, key:string, rules:Rule[], currentRule:Rule) {
-    const element = findElement(target, key, rules, currentRule)
+function resolveElementProxy(target:Element, key:string, rules:Rule[], currentRule:Rule, options:JsxnOptions) {
+    const element = findElement(target, key, rules, currentRule, options)
 
     if (element) {
         // no child elements or attributes, resolve as text.
-        if (element.childElementCount === 0 && element.attributes.length === 0) return elementText(element)
+        if (element.childElementCount === 0) {
+            // has no attributes or it has attributes but they are all namespace directives
+            if (element.attributes.length === 0 || !containsNormalAttributes(element))
+                return elementText(element)
+        }
         // wrap in proxy
-        return makeXmlProxy(element, rules)
+        return makeXmlProxy(element, rules, options)
     }
     return null
 }
 
 function evaluateRule(currentElement:Element, rule:Rule, requestedKey: string): boolean {
     if (rule.key && rule.key !== requestedKey) return false
+    return isRuleNamespaceMatch(currentElement, rule)
+}
+
+function evaluateRuleByAsKey(currentElement:Element, rule:Rule, asKey: string): boolean {
+    if (rule.asKey !== asKey) return false
+    return isRuleNamespaceMatch(currentElement, rule)
+}
+
+function isRuleNamespaceMatch(currentElement:Element, rule:Rule) {
     if (rule.whenLocalName && rule.whenLocalName !== currentElement.localName) return false
     if (rule.whenNamespace && rule.whenNamespace !== currentElement.namespaceURI) return false
     return true
 }
+
+function toCamelCase(input: string) {
+    return input.replace(/([-_][a-z])/ig, ($1) => {
+      return $1.toUpperCase()
+        .replace('-', '')
+        .replace('_', '');
+    });
+};
