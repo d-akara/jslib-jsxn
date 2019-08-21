@@ -118,8 +118,9 @@ function makeXmlProxy(element:Element, rules:Rule[], options:JsxnOptions):Elemen
             }
 
             else if (rule.type === 'elements') {
-                const elements = filter(target.children, element => element.localName === key)
-                return elements.map(element => makeXmlProxy(element, rules, options))
+                const elements = filter(target.children, element => resolveLocalName(element.localName, options) === key)
+                //return elements.map(element => makeXmlProxy(element, rules, options))
+                return makeXmlListProxy(elements, rules, options)
             }
 
             else if (rule.type === 'text') {
@@ -156,6 +157,23 @@ function makeXmlProxy(element:Element, rules:Rule[], options:JsxnOptions):Elemen
     return staticValueProxy
 }
 
+function makeXmlListProxy(elements:Element[], rules:Rule[], options:JsxnOptions):Element[] {
+    const staticValueProxy:any = new Proxy(elements, {
+        get(target, key) {
+            const value = target[key as number]
+            if (value instanceof Object) {
+                // if no attributes or child elements, return text content
+                return resolveAsProxyOrText(value, rules, options)
+                //return makeXmlProxy(value, rules, options);
+            }
+            else {
+                return value
+            }
+        }
+    })
+    return staticValueProxy
+}
+
 function resolveFirstMatchingRule(rules:Rule[], target:Element, key:string) {
     let rule = rules.find(rule => evaluateRule(target, rule, key))
     if (!rule) rule = {type:'any'}
@@ -171,10 +189,14 @@ function elementText(element:Element) {
     if (element.innerHTML) return element.innerHTML
 }
 
+function resolveLocalName(localName:string, options:JsxnOptions) {
+    return options.convertKeysToCamelCase ? toCamelCase(localName) : localName
+}
+
 function findElement(target:Element, key:string, rules:Rule[], currentRule:Rule, options:JsxnOptions) {
     // TODO detect multiple matches as ambiguous result
     const element = find(target.children, element => {
-        const localName = options.convertKeysToCamelCase ? toCamelCase(element.localName) : element.localName
+        const localName = resolveLocalName(element.localName, options)
         if (localName !== key) return false
         if (currentRule.asNamespace && currentRule.asNamespace !== element.namespaceURI) return false
         return true
@@ -190,24 +212,28 @@ function containsNormalAttributes(target:Element) {
 function findAttribute(target:Element, key:string, options:JsxnOptions) {
     // TODO detect multiple matches as ambiguous result
     const attribute = find(target.attributes, attribute => {
-        const localName = options.convertKeysToCamelCase ? toCamelCase(attribute.localName) : attribute.localName
+        const localName = resolveLocalName(attribute.localName, options)
         return localName === key && !(attribute.name.startsWith('xmlns:') || attribute.name === 'xmlns')
     })
     return attribute
+}
+
+function resolveAsProxyOrText(element:Element, rules:Rule[], options:JsxnOptions) {
+    // no child elements or attributes, resolve as text.
+    if (element.childElementCount === 0) {
+        // has no attributes or it has attributes but they are all namespace directives
+        if (element.attributes.length === 0 || !containsNormalAttributes(element))
+            return elementText(element)
+    }
+    // wrap in proxy
+    return makeXmlProxy(element, rules, options)
 }
 
 function resolveElementProxy(target:Element, key:string, rules:Rule[], currentRule:Rule, options:JsxnOptions) {
     const element = findElement(target, key, rules, currentRule, options)
 
     if (element) {
-        // no child elements or attributes, resolve as text.
-        if (element.childElementCount === 0) {
-            // has no attributes or it has attributes but they are all namespace directives
-            if (element.attributes.length === 0 || !containsNormalAttributes(element))
-                return elementText(element)
-        }
-        // wrap in proxy
-        return makeXmlProxy(element, rules, options)
+        return resolveAsProxyOrText(element, rules, options)
     }
     return null
 }

@@ -20,6 +20,10 @@ const sampleXml = `
     <simpleText ab="123">text of element</simpleText>
     <simpleText2 xmlns="http://abc">text of element</simpleText2>
     <dash-element dash-attribute="123"/>
+    <items>
+        <item-part>1</item-part>
+        <item-part>2</item-part>
+    </items>
 </root>
 `
 const document:XMLDocument = parser.sync(sampleXml)
@@ -39,6 +43,7 @@ const rules:Rule[] = [
     {key:'simpleText', type: 'text'},
     {key:'v', asKey: 'type', whenLocalName: 'plant'},
     {key:'v', asKey: 'value'},
+    {key:'itemPart', type: 'elements'},
 ]
 const xml = jsxn(document.documentElement as Element, rules, {convertKeysToCamelCase:true})
 
