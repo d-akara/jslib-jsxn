@@ -1,4 +1,4 @@
-# JSXN - JSON representation of XML by Proxy
+# JSXN - JSON representation of XML by simple mapping rules
 
 Currently experimental, expect updates to break things
 
@@ -6,7 +6,7 @@ Currently experimental, expect updates to break things
 ```javascript
 const parser = require('slimdom-sax-parser')
 import {XMLDocument, Element} from "slimdom"
-import {jsxn, Rule, AsJsonString, AsJson} from "./index"
+import {jsxn, Rule} from "./index"
 
 const sampleXml = `
 <root xmlns:y="http://localhost/yellow" xmlns:g="http://localhost/green">
