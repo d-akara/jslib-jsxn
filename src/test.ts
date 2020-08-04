@@ -41,8 +41,6 @@ const rules:Rule[] = [
     {element:'value', asKey:'v'},
     {element:'yellow', asKey: 'green', namespace: 'http://localhost/green'},
     {element:'simpleText', type: 'text'},
-    {element:'type', asKey: 'v', localName: 'plant'},
-    {element:'value', asKey: 'v'},
     {element:'item-part', type: 'multiple'},
     {attribute: 'dash-dash', asKey:'dashy'}
 ]

@@ -91,7 +91,6 @@ export interface Rule {
     attribute?: string
     asKey?: string
     type?: 'single' | 'multiple' | 'text' | 'none'
-    localName?: string
     namespace?: string
 }
 
@@ -191,7 +190,6 @@ function shouldRuleApply(currentElement:Node, rule:Rule): boolean {
 }
 
 function isRuleNamespaceMatch(currentElement:Node, rule:Rule) {
-    if (rule.localName && rule.localName !== currentElement.localName) return false
     if (rule.namespace && rule.namespace !== currentElement.namespaceURI) return false
     return true
 }
