@@ -86,11 +86,15 @@ function resolveElementAsText(element:Element, rule:Rule, options:JsxnOptions) {
     return null
 }
 
+// TODO - auto (auto select single, multiple or text)
+// none - skip these elements or attributes
+type NodeType =  'auto' | 'single' | 'multiple' | 'text' | 'none'
+
 export interface Rule {
     element?: string
     attribute?: string
     asKey?: string
-    type?: 'single' | 'multiple' | 'text' | 'none'
+    type?: NodeType
     namespace?: string
 }
 
@@ -100,9 +104,10 @@ export interface JsonObject {
 }
 
 interface JsxnOptions {
-    strict?: boolean
-    cardinality?: 'many' | 'one'
+    defaultType?: NodeType
     convertKeysToCamelCase?: boolean
+    /** log rule selection to console */
+    debugRules?: boolean 
 }
 
 /**
@@ -111,58 +116,69 @@ interface JsxnOptions {
  * @param element A DOM Element
  * @param rules optional list of rules to define how to resolve object key values
  */
-export function jsxn(element:Element, rules:Rule[] = [{type:'single'}], options:JsxnOptions = {convertKeysToCamelCase:true}):JsonObject {
+export function jsxn(element:Element, rules:Rule[] = [{type:'single'}], options:JsxnOptions = {}):JsonObject {
+    options = {convertKeysToCamelCase:true, defaultType:'single', ...options}
     return xmlElementToJson(element, rules, options) as unknown as JsonObject
 }
 
 function xmlElementToJson(target:Element, rules:Rule[], options:JsxnOptions) {
     const jsonElement:any = {}
 
-    const rule = resolveFirstMatchingRule(rules, target, 'element')
+    const rule = resolveFirstMatchingRule(rules, target, 'element', options)
     const textOfElement = resolveElementAsText(target, rule, options)
     if (textOfElement) return textOfElement
 
     forEach(target.children, element => {
-        const rule = resolveFirstMatchingRule(rules, element, 'element')
+        const rule = resolveFirstMatchingRule(rules, element, 'element', options)
         let key = resolveLocalName(element.localName, options)
         if (rule.asKey) key = rule.asKey
 
-        if (rule.type === 'multiple') {
+        if (rule.type === 'none') {
+            throw new Error('rule type not yet supported: ' + rule.type)
+        } else if (rule.type === 'multiple') {
             if (!jsonElement[key]) jsonElement[key] = []
             jsonElement[key].push(xmlElementToJson(element, rules, options))
         } else if (jsonElement[key]) {
             // skip already contains value don't override
-        } else if (rule.type === 'none') {
-            // skip
+        } else if (rule.type === 'auto') {
+            throw new Error('rule type not yet supported: ' + rule.type)
         } else {
             jsonElement[key] = xmlElementToJson(element, rules, options)
         }
-        console.log(rule, elementInfo(element))
+
+        if (options.debugRules)
+            console.log(rule, elementInfo(element))
     })
     
     forEach(target.attributes, attribute => {
-        const rule = resolveFirstMatchingRule(rules, attribute, 'attribute')
+        const rule = resolveFirstMatchingRule(rules, attribute, 'attribute', options)
         let key = resolveLocalName(attribute.name, options)
         if (rule.asKey) key = rule.asKey
         
-        if (jsonElement[key]) {
+        if (rule.type === 'none') {
+            throw new Error('rule type not yet supported: ' + rule.type)
+        } else if (jsonElement[key]) {
             // skip already contains value don't override
         } else if ((attribute.name.startsWith('xmlns:') || attribute.name === 'xmlns')) {
             // skip
+        } else if (rule.type === 'auto') {
+            throw new Error('rule type not yet supported: ' + rule.type)
         } else {
             jsonElement[key] = attribute.value
         }
-        console.log(rule, attributeInfo(attribute))
+
+        if (options.debugRules)
+            console.log(rule, attributeInfo(attribute))
     })
 
     
     return jsonElement
 }
 
-function resolveFirstMatchingRule(rules:Rule[], target:Node, nodeType: 'element' | 'attribute') {
+function resolveFirstMatchingRule(rules:Rule[], target:Node, nodeType: 'element' | 'attribute', options:JsxnOptions) {
     let rule = rules.filter(rule => rule[nodeType]).find(rule => shouldRuleApply(target, rule))
-    if (!rule) rule = {type:'single'}
-    if (!rule.type) rule.type = 'single' // use any as default if not set
+    if (!rule) rule = {type: options.defaultType}
+    if (!rule.type) rule.type = options.defaultType
     return rule
 }
 
